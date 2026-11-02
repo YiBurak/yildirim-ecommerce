@@ -1,0 +1,266 @@
+@HostAddress = http://localhost:5041
+
+### ======================================================
+### 🔐 AUTHENTICATION & AUTHORIZATION (JWT) TESTLERİ
+### ======================================================
+
+### 0.1. Yeni Kullanıcı Kayıt - Başarılı (POST /api/auth/register) - 201 Created Beklenir
+POST {{HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "bakiye@test.com",
+  "password": "Password123!",
+  "firstName": "Bakiye",
+  "lastName": "Ytersiz"
+}
+
+### 0.2. Kayıt Validasyon Testi - Hatalı E-posta ve Kısa Şifre (400 Bad Request Beklenir)
+POST {{HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "gecersiz-eposta",
+  "password": "123",
+  "firstName": "",
+  "lastName": ""
+}
+
+### 0.3. Giriş Yap ve JWT Token Al (POST /api/auth/login) - 200 OK Beklenir
+# Buradan dönen o upuzun "token" değerini kopyalayacağız!
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "bakiye@test.com",
+  "password": "Password123!"
+}
+
+### 0.4. Hatalı Şifre ile Giriş Denemesi (400 Bad Request Beklenir)
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "burak@example.com",
+  "password": "YanlisSifre999!"
+}
+
+### 0.5. Admin Olarak Giriş Yap ve Admin Token'ı Al (POST /api/auth/login)
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@enterprise.com",
+  "password": "Admin123!"
+}
+
+### 0.6. Sessiz Oturum Yenileme (POST /api/auth/refresh)
+# Giriş yaptıktan sonra dönen "refreshToken"ı buraya yapıştır:
+POST {{HostAddress}}/api/auth/refresh
+
+Content-Type: application/json
+{
+  "refreshToken": "nG0jnlMfXQS74+DkpZVbiYFMerUrApa76gmnIt/R+9XU38K54QkVIZIQGUjmrUN2ytyFMN/oHUo6N0/SRy5L+Q=="
+}
+### 0.7. Güvenli Çıkış / İptal Et (POST /api/auth/revoke)
+# Çıkış yapmak istediğinde bu anahtarı çöpe atar:
+POST {{HostAddress}}/api/auth/revoke
+Content-Type: application/json
+{
+  "refreshToken": "BURAYA_REFRESH_TOKENI_YAPISTIR"
+}
+
+
+
+### 1. Yeni Ürün Ekle - Başarılı (POST /api/products)
+POST {{HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "name": "MacBook Pro M3",
+  "description": "Apple Silicon 16GB RAM 512GB SSD",
+  "price": 64999.99,
+  "stockQuantity": 15,
+  "sku": "APPLE-MBP-M3-z",
+  "categoryId": "11111111-1111-1111-1111-111111111111"
+}
+
+### 1.1. Validasyon Testi - Hatalı Verilerle Ürün Ekle (400 Bad Request Beklenir)
+# Kurallar:
+# - İsim en az 3 karakter olmalı (burada "A" verildi)
+# - Fiyat > 0 olmalı (burada -50 verildi)
+# - Stok >= 0 olmalı (burada -10 verildi)
+# - SKU boş olamaz (burada "" verildi)
+# - Kategori boş GUID olamaz (burada 0000... verildi)
+POST {{HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "name": "A",
+  "description": "Hatalı ürün testi",
+  "price": -50,
+  "stockQuantity": -10,
+  "sku": "",
+  "categoryId": "00000000-0000-0000-0000-000000000000"
+}
+
+
+### 2. Ürünleri Sayfalı Listele - Varsayılan Ayarlar (1. Sayfa, 10 Ürün)
+GET {{HostAddress}}/api/products
+Accept: application/json
+### 2.1. Özel Sayfalama Testi (1. Sayfa, Sadece 2 Ürün Getir)
+GET {{HostAddress}}/api/products?pageNumber=1&pageSize=2
+Accept: application/json
+### 2.2. İkinci Sayfaya Geçiş Testi (2. Sayfa, 2 Ürün)
+GET {{HostAddress}}/api/products?pageNumber=2&pageSize=2
+Accept: application/json
+### 2.3. Sayfalama Validasyon Testi - Güvenlik Sınavı (400 Bad Request Beklenir)
+# Kurallar:
+# - pageNumber en az 1 olmalı (burada 0 gönderdik)
+# - pageSize en fazla 50 olmalı (burada 1000 gönderdik - DoS koruması)
+GET {{HostAddress}}/api/products?pageNumber=0&pageSize=1000
+Accept: application/json
+
+### 2.4. İsim / Açıklamada Arama Testi (SearchTerm: macbook)
+GET {{HostAddress}}/api/products?searchTerm=macbook
+Accept: application/json
+### 2.5. Fiyat Aralığı Filtresi Testi (50.000 TL ile 100.000 TL arası ürünler)
+GET {{HostAddress}}/api/products?minPrice=50000&maxPrice=100000
+Accept: application/json
+### 2.6. Sıralama Testi (Fiyata Göre Azalan: En Pahalı Ürün En Başta)
+GET {{HostAddress}}/api/products?sortBy=price_desc
+Accept: application/json
+### 2.7. Tam Kombinasyon Testi (Arama + Fiyat + Sıralama + Sayfalama)
+# 10.000 TL üzeri, içinde "apple" veya "macbook" geçen, fiyata göre artan, 1. sayfa, 5 ürün
+GET {{HostAddress}}/api/products?searchTerm=macbook&minPrice=10000&sortBy=price_asc&pageNumber=1&pageSize=5
+Accept: application/json
+### 2.8. Güvenlik Testi 1 - Mantıksal Çelişki (Min > Max) (400 Bad Request Beklenir)
+# Min: 90.000 TL, Max: 10.000 TL verildi
+GET {{HostAddress}}/api/products?minPrice=90000&maxPrice=10000
+Accept: application/json
+### 2.9. Güvenlik Testi 2 - Geçersiz Sıralama Parametresi (400 Bad Request Beklenir)
+# İzin verilmeyen rastgele bir sıralama string'i gönderildi
+GET {{HostAddress}}/api/products?sortBy=gecersiz_siralama
+Accept: application/json
+
+### 3. ID ile Tekil Ürün Getir (Var Olan Ürün - 200 OK)
+# DİKKAT: Aşağıdaki ID yerine 1. veya 2. istekten dönen kendi ürün ID'ni yapıştırabilirsin!
+GET {{HostAddress}}/api/products/1b273f5f-23df-4943-8a51-4f3e93e10449
+Accept: application/json
+
+
+### 4. Olmayan ID ile Ürün Getir (404 Not Found Testi)
+GET {{HostAddress}}/api/products/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+### 5. Ürünü Güncelle (PUT /api/products/{id})
+# DİKKAT: URL'deki ve JSON içindeki ID yerine kendi ürün ID'ni yaz!
+PUT {{HostAddress}}/api/products/53195b39-331e-4b94-902a-ba27e4bd1dc2
+Content-Type: application/json
+
+{
+  "id": "e060e38e-bae5-4f78-a1ab-4d31e9478973",
+  "name": "MacBook Pro M3",
+  "description": "Apple Silicon 16GB RAM 512GB SSD",
+  "price": 64999.99,
+  "stockQuantity": 15,
+  "sku": "APPLE-MBP-M3-z",
+  "categoryId": "11111111-1111-1111-1111-111111111111"
+}
+
+### 5.1. Ürün Güncelleme Validasyon Testi - Hatalı Güncelleme (400 Bad Request Beklenir)
+# Kurallar:
+# - Fiyat > 0 olmalı (burada -999 verildi)
+# - İsim en az 3 karakter olmalı (burada "X" verildi)
+# - Stok >= 0 olmalı (burada -3 verildi)
+PUT {{HostAddress}}/api/products/53195b39-331e-4b94-902a-ba27e4bd1dc2
+Content-Type: application/json
+
+{
+  "id": "53195b39-331e-4b94-902a-ba27e4bd1dc2",
+  "name": "X",
+  "description": "Bozuk guncelleme",
+  "price": -999,
+  "stockQuantity": -3,
+  "sku": "APPLE-MBP-M3",
+  "categoryId": "11111111-1111-1111-1111-111111111111"
+}
+
+### 6. Ürünü Sil (DELETE /api/products/{id})
+# DİKKAT: Aşağıya silmek istediğin ürünün ID'sini yaz!
+DELETE {{HostAddress}}/api/products/C156B00D-CBE1-4168-97BF-91449ACE5DA0
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzYWUyMjUwZC0zYzZjLTQwOTQtYTM1NS0wZGY5YjgxMDBjZjciLCJlbWFpbCI6ImFkbWluQGVudGVycHJpc2UuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiQWRtaW4iLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiU2lzdGVtIFnDtm5ldGljaXNpIiwianRpIjoiODkxNzg0NDYtOGJlMC00MTBlLTlkMTItZDc0NTBjNDNmZWZjIiwiZXhwIjoxNzkyNDk5MzAwLCJpc3MiOiJFbnRlcnByaXNlRUNvbW1lcmNlIiwiYXVkIjoiRW50ZXJwcmlzZUVDb21tZXJjZUNsaWVudCJ9.71RpwXeWwD63HkP27vLoFPkiV7NOaeob0J-4ofAu_rA
+
+### 7. Sipariş Oluştur - Idempotency Korumalı Test
+### 7. Sipariş Oluştur - Idempotency Testi
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiOWU2NWE5Mi01NDIwLTQ3ZWUtOTkwNy05MTliNTBhY2NkMTkiLCJlbWFpbCI6ImJha2l5ZUB0ZXN0LmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IkN1c3RvbWVyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6IkJha2l5ZSBZdGVyc2l6IiwianRpIjoiMDFkYmNkMWEtMDAzZC00ODU3LTgzYmItOTRiMTBjM2MzYWNlIiwiZXhwIjoxNzkzMDIxNTY2LCJpc3MiOiJFbnRlcnByaXNlRUNvbW1lcmNlIiwiYXVkIjoiRW50ZXJwcmlzZUVDb21tZXJjZUNsaWVudCJ9.25rdp5UeLpdyx6N5KvqBbzNCfJRZuUoMOqiJPzMyxjY
+Idempotency-Key: 73777772-7777-7777-7727-788777777777
+
+{
+  "items": [
+    {
+      "productId": "A753D7E2-1CCE-4869-8D40-A04DB23CB638",
+      "quantity": 1
+    }
+  ]
+}
+
+
+
+
+### 7.1. Sipariş Validasyon Testi - Hatalı E-posta ve 0 Adet (400 Bad Request Beklenir)
+# Kurallar:
+# - E-posta geçersiz ("gecersiz-eposta")
+# - Adet 0 olamaz (en az 1 olmalı)
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "customerEmail": "gecersiz-eposta",
+  "items": [
+    {
+      "productId": "1ef50b55-40fd-428e-acfe-d99c1a788ff7",
+      "quantity": 0
+    }
+  ]
+}
+
+
+### 7.2. Yetersiz Stok Testi (Hata Beklenir)
+# Stokta sadece 14-15 tane MacBook varken 100 tane istemeye çalışıyoruz!
+POST {{HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "customerEmail": "burak@example.com",
+  "items": [
+    {
+      "productId": "1ef50b55-40fd-428e-acfe-d99c1a788ff7",
+      "quantity": 14
+    }
+  ]
+}
+
+### 8. Sipariş Detayını Getir (GET /api/orders/{id})
+# DİKKAT: Aşağıdaki ID yerine az önce veritabanında oluşan kendi sipariş ID'ni yapıştır:
+GET {{HostAddress}}/api/orders/43E90834-E099-4414-9F91-EEDE4D0313B7
+Accept: application/json
+
+### 9. Sipariş İptali - Başarılı (POST /api/orders/{id}/cancel) - 200 OK Beklenir
+# DİKKAT: Aşağıdaki ID yerine az önce test 7 veya 8'deki kendi sipariş ID'ni yapıştır:
+# Beklenen: Sipariş durumu "Cancelled" olacak ve satılan ürünler stoğa GERİ İADE edilecek!
+POST {{HostAddress}}/api/orders/43E90834-E099-4414-9F91-EEDE4D0313B7/cancel
+Content-Type: application/json
+### 9.1. Zaten İptal Edilmiş Siparişi Tekrar İptal Etmeyi Dene (400 Bad Request Beklenir)
+# Beklenen: "Bu sipariş zaten daha önce iptal edilmiş!" hatası dönmeli (Stok şişmesini önleme testi)
+POST {{HostAddress}}/api/orders/43E90834-E099-4414-9F91-EEDE4D0313B7/cancel
+Content-Type: application/json
+### 9.2. Boş GUID ile İptal Etme - Validasyon Testi (400 Bad Request Beklenir)
+# Beklenen: FluentValidation'ın "İptal edilecek sipariş numarası (OrderId) boş olamaz!" hatası
+POST {{HostAddress}}/api/orders/00000000-0000-0000-0000-000000000000/cancel
+Content-Type: application/json
+
+
+

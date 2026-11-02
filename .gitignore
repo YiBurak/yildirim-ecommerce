@@ -1,0 +1,26 @@
+# Dependencies
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Environment & Secret files
+.env
+.env.*
+!.env.example
+*.secrets.json
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Logs & temp
+*.log
+.vs/
+.idea/
+.vscode/
+
